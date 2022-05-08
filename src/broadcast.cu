@@ -45,6 +45,7 @@ testResult_t BroadcastInitData(struct threadArgs* args, ncclDataType_t type, ncc
 }
 
 void BroadcastGetBw(size_t count, int typesize, double sec, double* algBw, double* busBw, int nranks) {
+  //PRINT("@ BroadcastGetBw run\n");
   double baseBw = (double)(count * typesize) / 1.0E9 / sec;
 
   *algBw = baseBw;
@@ -53,6 +54,7 @@ void BroadcastGetBw(size_t count, int typesize, double sec, double* algBw, doubl
 }
 
 testResult_t BroadcastRunColl(void* sendbuff, void* recvbuff, size_t count, ncclDataType_t type, ncclRedOp_t op, int root, ncclComm_t comm, cudaStream_t stream) {
+  //PRINT("@ BroadcastRunColl run\n");
   int rank;
   NCCLCHECK(ncclCommUserRank(comm, &rank));
 #if NCCL_MAJOR >= 2 && NCCL_MINOR >= 2
@@ -81,6 +83,8 @@ void BroadcastGetBuffSize(size_t *sendcount, size_t *recvcount, size_t count, in
 }
 
 testResult_t BroadcastRunTest(struct threadArgs* args, int root, ncclDataType_t type, const char* typeName, ncclRedOp_t op, const char* opName) {
+  //PRINT("@ BroadcastRunTest start\n");
+
   args->collTest = &broadcastTest;
   ncclDataType_t *run_types;
   const char **run_typenames;
@@ -106,6 +110,7 @@ testResult_t BroadcastRunTest(struct threadArgs* args, int root, ncclDataType_t 
 
   for (int i=0; i<type_count; i++) {
     for (int j=begin_root; j<=end_root; j++) {
+      //PRINT("@ call TimeTest %d in (%d, %d)\n", i, begin_root, end_root );
       TESTCHECK(TimeTest(args, run_types[i], run_typenames[i], (ncclRedOp_t)0, "", j));
     }
   }

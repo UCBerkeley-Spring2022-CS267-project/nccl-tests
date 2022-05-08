@@ -74,6 +74,7 @@ struct testColl {
   testResult_t (*runColl)(void* sendbuff, void* recvbuff, size_t count, ncclDataType_t type,
       ncclRedOp_t op, int root, ncclComm_t comm, cudaStream_t stream);
 };
+
 extern struct testColl allReduceTest;
 extern struct testColl allGatherTest;
 extern struct testColl reduceScatterTest;

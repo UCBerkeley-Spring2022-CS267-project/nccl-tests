@@ -570,7 +570,8 @@ testResult_t startColl(struct threadArgs* args, ncclDataType_t type, ncclRedOp_t
       NCCLCHECK(ncclRedOpDestroy(op, args->comms[i]));
     }
     #endif
-  }
+  } // end of for GPU
+
   if (args->nGpus > 1) NCCLCHECK(ncclGroupEnd());
 
   if (blocking_coll) {
@@ -598,22 +599,21 @@ testResult_t BenchTime(struct threadArgs* args, ncclDataType_t type, ncclRedOp_t
   // Sync
   TESTCHECK(startColl(args, type, op, root, in_place, 0));
   TESTCHECK(completeColl(args));
-
   Barrier(args);
 
-#if CUDART_VERSION >= 11030
-  cudaGraph_t graphs[args->nGpus];
-  cudaGraphExec_t graphExec[args->nGpus];
-  if (cudaGraphLaunches >= 1) {
-    // Begin cuda graph capture
-    for (int i=0; i<args->nGpus; i++) {
-      // Thread local mode is needed for:
-      // - Multi-thread mode
-      // - P2P pre-connect
-      CUDACHECK(cudaStreamBeginCapture(args->streams[i], cudaStreamCaptureModeThreadLocal));
-    }
-  }
-#endif
+// #if CUDART_VERSION >= 11030
+//   cudaGraph_t graphs[args->nGpus];
+//   cudaGraphExec_t graphExec[args->nGpus];
+//   if (cudaGraphLaunches >= 1) {
+//     // Begin cuda graph capture
+//     for (int i=0; i<args->nGpus; i++) {
+//       // Thread local mode is needed for:
+//       // - Multi-thread mode
+//       // - P2P pre-connect
+//       CUDACHECK(cudaStreamBeginCapture(args->streams[i], cudaStreamCaptureModeThreadLocal));
+//     }
+//   }
+// #endif
 
   // Performance Benchmark
   auto start = std::chrono::high_resolution_clock::now();
@@ -625,26 +625,26 @@ testResult_t BenchTime(struct threadArgs* args, ncclDataType_t type, ncclRedOp_t
     if (agg_iters>1) NCCLCHECK(ncclGroupEnd());
   }
 
-#if CUDART_VERSION >= 11030
-  if (cudaGraphLaunches >= 1) {
-    // End cuda graph capture
-    for (int i=0; i<args->nGpus; i++) {
-      CUDACHECK(cudaStreamEndCapture(args->streams[i], graphs+i));
-    }
-    // Instantiate cuda graph
-    for (int i=0; i<args->nGpus; i++) {
-      CUDACHECK(cudaGraphInstantiate(graphExec+i, graphs[i], NULL, NULL, 0));
-    }
-    // Resync CPU, restart timing, launch cuda graph
-    Barrier(args);
-    start = std::chrono::high_resolution_clock::now();
-    for (int l=0; l<cudaGraphLaunches; l++) {
-      for (int i=0; i<args->nGpus; i++) {
-        CUDACHECK(cudaGraphLaunch(graphExec[i], args->streams[i]));
-      }
-    }
-  }
-#endif
+// #if CUDART_VERSION >= 11030
+//   if (cudaGraphLaunches >= 1) {
+//     // End cuda graph capture
+//     for (int i=0; i<args->nGpus; i++) {
+//       CUDACHECK(cudaStreamEndCapture(args->streams[i], graphs+i));
+//     }
+//     // Instantiate cuda graph
+//     for (int i=0; i<args->nGpus; i++) {
+//       CUDACHECK(cudaGraphInstantiate(graphExec+i, graphs[i], NULL, NULL, 0));
+//     }
+//     // Resync CPU, restart timing, launch cuda graph
+//     Barrier(args);
+//     start = std::chrono::high_resolution_clock::now();
+//     for (int l=0; l<cudaGraphLaunches; l++) {
+//       for (int i=0; i<args->nGpus; i++) {
+//         CUDACHECK(cudaGraphLaunch(graphExec[i], args->streams[i]));
+//       }
+//     }
+//   }
+// #endif
 
   TESTCHECK(completeColl(args));
 
@@ -654,15 +654,15 @@ testResult_t BenchTime(struct threadArgs* args, ncclDataType_t type, ncclRedOp_t
   if (cudaGraphLaunches >= 1) deltaSec = deltaSec/cudaGraphLaunches;
   Allreduce(args, &deltaSec, average);
 
-#if CUDART_VERSION >= 11030
-  if (cudaGraphLaunches >= 1) {
-    //destroy cuda graph
-    for (int i=0; i<args->nGpus; i++) {
-      CUDACHECK(cudaGraphExecDestroy(graphExec[i]));
-      CUDACHECK(cudaGraphDestroy(graphs[i]));
-    }
-  }
-#endif
+// #if CUDART_VERSION >= 11030
+//   if (cudaGraphLaunches >= 1) {
+//     //destroy cuda graph
+//     for (int i=0; i<args->nGpus; i++) {
+//       CUDACHECK(cudaGraphExecDestroy(graphExec[i]));
+//       CUDACHECK(cudaGraphDestroy(graphs[i]));
+//     }
+//   }
+// #endif
 
   double algBw, busBw;
   args->collTest->getBw(count, wordSize(type), deltaSec, &algBw, &busBw, args->nProcs*args->nThreads*args->nGpus);
@@ -672,56 +672,56 @@ testResult_t BenchTime(struct threadArgs* args, ncclDataType_t type, ncclRedOp_t
   double maxDelta = 0;
   static __thread int rep = 0;
   rep++;
-  if (datacheck) {
-      // Initialize sendbuffs, recvbuffs and expected
-      TESTCHECK(args->collTest->initData(args, type, op, root, rep, in_place));
+//   if (datacheck) {
+//       // Initialize sendbuffs, recvbuffs and expected
+//       TESTCHECK(args->collTest->initData(args, type, op, root, rep, in_place));
 
-#if CUDART_VERSION >= 11030
-      if (cudaGraphLaunches >= 1) {
-        // Begin cuda graph capture for data check
-        for (int i=0; i<args->nGpus; i++) {
-          CUDACHECK(cudaStreamBeginCapture(args->streams[i], args->nThreads > 1 ? cudaStreamCaptureModeThreadLocal : cudaStreamCaptureModeGlobal));
-        }
-      }
-#endif
+// #if CUDART_VERSION >= 11030
+//       if (cudaGraphLaunches >= 1) {
+//         // Begin cuda graph capture for data check
+//         for (int i=0; i<args->nGpus; i++) {
+//           CUDACHECK(cudaStreamBeginCapture(args->streams[i], args->nThreads > 1 ? cudaStreamCaptureModeThreadLocal : cudaStreamCaptureModeGlobal));
+//         }
+//       }
+// #endif
 
-      //test validation in single itertion, should ideally be included into the multi-iteration run
-      TESTCHECK(startColl(args, type, op, root, in_place, 0));
+//       //test validation in single itertion, should ideally be included into the multi-iteration run
+//       TESTCHECK(startColl(args, type, op, root, in_place, 0));
 
-#if CUDART_VERSION >= 11030
-      if (cudaGraphLaunches >= 1) {
-        // End cuda graph capture
-        for (int i=0; i<args->nGpus; i++) {
-          CUDACHECK(cudaStreamEndCapture(args->streams[i], graphs+i));
-        }
-        // Instantiate cuda graph
-        for (int i=0; i<args->nGpus; i++) {
-          CUDACHECK(cudaGraphInstantiate(graphExec+i, graphs[i], NULL, NULL, 0));
-        }
-        // Launch cuda graph
-        for (int i=0; i<args->nGpus; i++) {
-          CUDACHECK(cudaGraphLaunch(graphExec[i], args->streams[i]));
-        }
-      }
-#endif
+// #if CUDART_VERSION >= 11030
+//       if (cudaGraphLaunches >= 1) {
+//         // End cuda graph capture
+//         for (int i=0; i<args->nGpus; i++) {
+//           CUDACHECK(cudaStreamEndCapture(args->streams[i], graphs+i));
+//         }
+//         // Instantiate cuda graph
+//         for (int i=0; i<args->nGpus; i++) {
+//           CUDACHECK(cudaGraphInstantiate(graphExec+i, graphs[i], NULL, NULL, 0));
+//         }
+//         // Launch cuda graph
+//         for (int i=0; i<args->nGpus; i++) {
+//           CUDACHECK(cudaGraphLaunch(graphExec[i], args->streams[i]));
+//         }
+//       }
+// #endif
 
-      TESTCHECK(completeColl(args));
+//       TESTCHECK(completeColl(args));
 
-#if CUDART_VERSION >= 11030
-      if (cudaGraphLaunches >= 1) {
-        //destroy cuda graph
-        for (int i=0; i<args->nGpus; i++) {
-          CUDACHECK(cudaGraphExecDestroy(graphExec[i]));
-          CUDACHECK(cudaGraphDestroy(graphs[i]));
-        }
-      }
-#endif
+// #if CUDART_VERSION >= 11030
+//       if (cudaGraphLaunches >= 1) {
+//         //destroy cuda graph
+//         for (int i=0; i<args->nGpus; i++) {
+//           CUDACHECK(cudaGraphExecDestroy(graphExec[i]));
+//           CUDACHECK(cudaGraphDestroy(graphs[i]));
+//         }
+//       }
+// #endif
 
-      TESTCHECK(CheckData(args, type, op, root, in_place, &maxDelta));
+//       TESTCHECK(CheckData(args, type, op, root, in_place, &maxDelta));
 
-      //aggregate delta from all threads and procs
-      Allreduce(args, &maxDelta, 3);
-  }
+//       //aggregate delta from all threads and procs
+//       Allreduce(args, &maxDelta, 3);
+//   } // end of if datacheck
 
   double timeUsec = deltaSec*1.0E6;
   char timeStr[100];
@@ -758,6 +758,8 @@ void setupArgs(size_t size, ncclDataType_t type, struct threadArgs* args) {
 }
 
 testResult_t TimeTest(struct threadArgs* args, ncclDataType_t type, const char* typeName, ncclRedOp_t op, const char* opName, int root) {
+  //PRINT("@ TimeTest called\n");
+  //PRINT("@ TimeTest warmup start\n");
   // Warm-up for large size
   setupArgs(args->maxbytes, type, args);
   for (int iter = 0; iter < warmup_iters; iter++) {
@@ -771,17 +773,18 @@ testResult_t TimeTest(struct threadArgs* args, ncclDataType_t type, const char* 
     TESTCHECK(startColl(args, type, op, root, 0, iter));
   }
   TESTCHECK(completeColl(args));
+  //PRINT("@ TimeTest warmup end\n");
 
   // Benchmark
   for (size_t size = args->minbytes; size<=args->maxbytes; size = ((args->stepfactor > 1) ? size*args->stepfactor : size+args->stepbytes)) {
       setupArgs(size, type, args);
       print_line_header(max(args->sendBytes, args->expectedBytes), args->nbytes / wordSize(type), typeName, opName, root);
-      TESTCHECK(BenchTime(args, type, op, root, 0));
+      TESTCHECK(BenchTime(args, type, op, root, 0)); // Only test out of place performence right now
       TESTCHECK(BenchTime(args, type, op, root, 1));
       PRINT("\n");
   }
   return testSuccess;
-}
+} // end of TimeTest
 
 testResult_t threadRunTests(struct threadArgs* args) {
   // Set device to the first of our GPUs. If we don't do that, some operations
@@ -789,6 +792,7 @@ testResult_t threadRunTests(struct threadArgs* args) {
   // exclusive mode those operations will fail.
   int gpuid = args->localRank*args->nThreads*args->nGpus + args->thread*args->nGpus;
   CUDACHECK(cudaSetDevice(gpuid));
+  //PRINT("@ Call ncclTestEngine.runTest\n");
   TESTCHECK(ncclTestEngine.runTest(args, ncclroot, (ncclDataType_t)nccltype, test_typenames[nccltype], (ncclRedOp_t)ncclop, test_opnames[ncclop]));
   return testSuccess;
 }
@@ -1008,6 +1012,8 @@ int main(int argc, char* argv[]) {
   return 0;
 }
 
+
+// Run actual test
 testResult_t run() {
   int nProcs = 1, proc = 0;
   int localRank = 0;
@@ -1015,6 +1021,7 @@ testResult_t run() {
   getHostName(hostname, 1024);
 
 #ifdef MPI_SUPPORT
+  PRINT("# MPI is enabled\n");
   MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
   MPI_Comm_rank(MPI_COMM_WORLD, &proc);
   uint64_t hostHashs[nProcs];
@@ -1027,7 +1034,8 @@ testResult_t run() {
 #endif
   is_main_thread = (proc == 0) ? 1 : 0;
 
-  PRINT("# nThread %d nGpus %d minBytes %ld maxBytes %ld step: %ld(%s) warmup iters: %d iters: %d validation: %d \n", nThreads, nGpus, minBytes, maxBytes,
+  PRINT("# nThread %d, nGpus %d, minBytes %ld, maxBytes %ld, step: %ld(%s), warmup iters: %d, iters: %d, validation: %d \n", \
+      nThreads, nGpus, minBytes, maxBytes,
       (stepFactor > 1)?stepFactor:stepBytes, (stepFactor > 1)?"factor":"bytes", warmup_iters, iters, datacheck);
   if (blocking_coll) PRINT("# Blocking Enabled: wait for completion and barrier after each collective \n");
   if (parallel_init) PRINT("# Parallel Init Enabled: threads call into NcclInitRank concurrently \n");
@@ -1084,6 +1092,8 @@ testResult_t run() {
   size_t sendBytes, recvBytes;
 
   ncclTestEngine.getBuffSize(&sendBytes, &recvBytes, (size_t)maxBytes, (size_t)nProcs*nGpus*nThreads);
+
+  PRINT("# sendBytes %d, recvBytes %d, maxBytes (actual malloc) %d\n", sendBytes, recvBytes, maxBytes );
 
   for (int i=0; i<nGpus*nThreads; i++) {
     CUDACHECK(cudaSetDevice(localRank*nThreads*nGpus+i));
@@ -1160,7 +1170,7 @@ testResult_t run() {
     threads[t].args.reportErrors = 1;
 
     threads[t].func = parallel_init ? threadInit : threadRunTests;
-    if (t)
+    if (t) // Not thread 0
       TESTCHECK(threadLaunch(threads+t));
     else
       TESTCHECK(threads[t].func(&threads[t].args));
